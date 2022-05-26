@@ -11,7 +11,7 @@ from rouge import Rouge
 import scipy.optimize as op
 # os.environ['PATH'] = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.7/bin" + os.pathsep + os.environ['PATH']
 # print(os.environ['PATH'])
-# from jury import Jury
+from jury import Jury
 
 
 def get_references_tokenized(raw: str, start_token: str, length: int):
@@ -146,6 +146,22 @@ def calculate_spelling_accuracy(raw, out):
             count += 1
     return count / len(out_vocab)
 
+def gen_bart(raw, files):
+    start = "romeo:"
+    outputs = []
+    out_dirs = []
+    res = []
+    for out_dir in files:
+        out_dirs.append(out_dir)
+        outputs.append(open(out_dir, mode='r').read())
+    for out, dir in zip(outputs, out_dirs):
+        print("evaluating " + dir)
+        bert = calculate_bert_score(raw, out, start)
+        bart = np.mean(bert['bartscore']["score"])
+        scores = [dir, bart]
+        res.append(scores)
+    pd.DataFrame(res).to_csv("bart.csv",
+                             header=["out", "bart"], index=False)
 
 def gen_spelling_accuracy(raw, files):
     outputs = []
@@ -157,7 +173,7 @@ def gen_spelling_accuracy(raw, files):
     for out, dir in zip(outputs, out_dirs):
         scores = [dir, calculate_spelling_accuracy(raw, out)]
         res.append(scores)
-    pd.DataFrame(res).to_csv("char_level_spelling_acc.csv",
+    pd.DataFrame(res).to_csv("char_level_spelling_acc-2.csv",
                              header=["out", "acc"], index=False)
 
 
@@ -191,30 +207,35 @@ def gen_metrics(raw, files, title):
         bert_precision = np.mean(bert['bertscore']["precision"])
         bert_recall = np.mean(bert['bertscore']["recall"])
         bert_f1 = np.mean(bert['bertscore']["f1"])
+        bart = np.mean(bert['bartscore']["score"])
         zipf = calculate_zipf_coeff(out)
         scores = [dir, unigram_score, bigram_score, trigram_score, fourgram_score, bleu_3, rouge_1_p, rouge_1_recall,
                   rouge_1_f1, rouge_2_p, rouge_2_recall, rouge_2_f1, rouge_l_p, rouge_l_recall, rouge_l_f1,
-                  bert_precision, bert_recall, bert_f1, zipf]
+                  bert_precision, bert_recall, bert_f1, bart, zipf]
         res.append(scores)
     pd.DataFrame(res).to_csv(title + ".csv",
                              header=["out", "1-gram", "2-gram", "3-gram", "4-gram", "bleu3", "rouge-1-p", "rouge-1-r",
                                      "rouge-1-f1", "rouge-2-p", "rouge-2-r", "rouge-2-f1", "rouge-L-p", "rouge-L-r",
-                                     "rouge-L-f1", "bert-p", "bert-r", "bert-f1", "zipf-coeff"], index=False)
+                                     "rouge-L-f1", "bert-p", "bert-r", "bert-f1", "bart", "zipf-coeff"], index=False)
 
 
-# scorer = Jury(metrics=["bertscore"])
+scorer = Jury(metrics=["bertscore", "bartscore"])
+# scorer = Jury(metrics=["bartscore"])
 if __name__ == '__main__':
 
     # outs = ["char_gru_100_full.txt", "char_gru_200_full.txt", "char_gru_300_full.txt", "char_gru_400_full.txt",
     #         "char_lstm_1_100_full.txt", "char_lstm_2_100_full.txt", "char_rnn_100_full.txt"]
-    # outs = ["char_gru_500_full.txt", "char_gru_600_full.txt", "char_gru_800_full.txt", "char_gru_1000_full_60epochs.txt",
+    # outs += ["char_gru_500_full.txt", "char_gru_600_full.txt", "char_gru_800_full.txt", "char_gru_1000_full_60epochs.txt",
     #         "char_lstm_500_full_nu_085.txt", "char_lstm_500_full_nu_095.txt", "char_lstm_500_full_tem_08.txt", "char_lstm_500_full_tem_09.txt"]
     # outs = ["self_test.txt"]
-    outs = ["char_rnn_100_full.txt", "char_gru_100_full.txt", "char_gru_200_full.txt", "char_gru_300_full.txt", "char_gru_400_full.txt",
-            "char_gru_500_full.txt", "char_gru_600_full.txt", "char_gru_800_full.txt", "char_gru_1000_full_60epochs.txt",
-            "char_lstm_1_100_full.txt", "char_lstm_2_100_full.txt", "char_lstm_500_full_nu_085.txt", "char_lstm_500_full_nu_095.txt",
-            "char_lstm_500_full_tem_08.txt", "char_lstm_500_full_tem_09.txt", "char_lstm_800_full_tem_09.txt", "char_lstm_1000_full_tem_09.txt",
-            "char_lstm_2_500_full_tem_09.txt"]
+    # outs = ["char_lstm_800_full_tem_09.txt", "char_lstm_1000_full_tem_09.txt", "char_lstm_2_500_full_tem_09.txt"]
+    # outs = ["char_rnn_100_full.txt", "char_gru_100_full.txt", "char_gru_200_full.txt", "char_gru_300_full.txt", "char_gru_400_full.txt",
+    #         "char_gru_500_full.txt", "char_gru_600_full.txt", "char_gru_800_full.txt", "char_gru_1000_full_60epochs.txt",
+    #         "char_lstm_1_100_full.txt", "char_lstm_2_100_full.txt", "char_lstm_500_full_nu_085.txt", "char_lstm_500_full_nu_095.txt",
+    #         "char_lstm_500_full_tem_08.txt", "char_lstm_500_full_tem_09.txt", "char_lstm_800_full_tem_09.txt", "char_lstm_1000_full_tem_09.txt",
+    #         "char_lstm_2_500_full_tem_09.txt"]
+    outs = ["char_lstm_200_full.txt", "char_lstm_400_full.txt", "char_lstm_500_full_nu_0999.txt", "char_lstm_500_full_nu_075.txt", "char_lstm_500_full_nu_065.txt", "char_lstm_500_full_tem_1.txt", "char_lstm_500_full_tem_07.txt"]
+    # outs = ["word_lstm_500_glove_tem_09.txt", "word_lstm_500_ri_subset_norm_1_tem_09.txt", "word_lstm_500_ri_subset_norm_2_tem_09.txt", "word_lstm_500_w2v_tem_09.txt", "word_lstm_500_w2v_50_2_tem_09.txt"]
     for out_dir in outs:
         temp = open(out_dir, mode='r').read()
 
@@ -223,37 +244,12 @@ if __name__ == '__main__':
     # gen_metrics(text.lower(), outs, "eval_on_shakespeare_subset")
     text = open('shakespeare_full.txt', mode='r').read()
     gen_spelling_accuracy(text.lower(), outs)
+    # gen_metrics(text.lower(), outs, "eval_on_shakespeare_full_3")
+    # gen_bart(text.lower(), outs)
     exit(0)
-    gen_metrics(text.lower(), outs, "test_eval")
-    exit(0)
-
-    # word_buffer = ''
-    # delimiter = {'\n', ' ', '!', '$', '&', "'", ',', '-', '.', ':', ';', '?'}
-    # vocab = {word for word in delimiter}
-    # filtered = ""
-    # for i in text:
-    #     if i in delimiter:
-    #         if word_buffer != '':
-    #             filtered += " " + word_buffer
-    #         if word_buffer != '' and word_buffer.lower() not in vocab:
-    #             vocab.add(word_buffer.lower())
-    #         if i == "'":
-    #             word_buffer = "'"
-    #         else:
-    #             word_buffer = ''
-    #     else:
-    #         word_buffer += i
-    # vocab = sorted(vocab)
-    # vocab_size = len(vocab)
-    # print(vocab_size)
-    # with open("cleaned_shakespeare.txt", "w") as text_file:
-    #     text_file.write(filtered)
-    # sentences = LineSentence("shakespeare.txt")
-    # w2v = Word2Vec(raw)
-    # w2v.train()
-    res = "romeo: not see tranio but him.\n\nmiranda:\nso frailty, thou he an action in rotten\nseize the wake humorous; and he ye iii.\nwhen stranger with such luke?\nignorant, stood, prevent would can these feast in\ngrow in  please?\nwould thy best."
-    print(cleaning_without_space(res))
-    ref = get_references_tokenized(text, "romeo:", len(res))
-    print(ref[0])
-    score = nltk.bleu(references=ref, hypothesis=cleaning_without_space(res), weights=(0.5, 0.5, 0, 0))
-    print(score)
+    # res = "romeo: not see tranio but him.\n\nmiranda:\nso frailty, thou he an action in rotten\nseize the wake humorous; and he ye iii.\nwhen stranger with such luke?\nignorant, stood, prevent would can these feast in\ngrow in  please?\nwould thy best."
+    # print(cleaning_without_space(res))
+    # ref = get_references_tokenized(text, "romeo:", len(res))
+    # print(ref[0])
+    # score = nltk.bleu(references=ref, hypothesis=cleaning_without_space(res), weights=(0.5, 0.5, 0, 0))
+    # print(score)
